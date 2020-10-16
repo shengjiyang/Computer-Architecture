@@ -3,6 +3,7 @@
 import time
 import sys
 
+
 class CPU:
     """Main CPU class."""
 
@@ -13,6 +14,7 @@ class CPU:
         self.pc = 0
         self.reg_pc = 0
         self.sp = 6
+        self.flag = [0] * 8
 
     def ram_read(self, pos):
         return self.ram[pos]
@@ -44,7 +46,6 @@ class CPU:
 
                     address += 1
 
-
         except FileNotFoundError:
             print(f"Couldn't open {sys.argv[1]}")
             sys.exit(2)
@@ -52,7 +53,6 @@ class CPU:
         if address == 0:
             print("Program is empty!")
             sys.exit(3)
-
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
@@ -68,7 +68,17 @@ class CPU:
 
         elif op == "DIV":
             self.reg[reg_a] = self.reg[reg_a] / self.reg[reg_b]
-     
+
+        elif op == "CMP":
+            if self.reg[reg_a] == self.reg[reg_b]:
+                self.flag[-1] = 1
+
+            elif self.reg[reg_a] < self.reg[reg_b]:
+                self.flag[-3] = 1
+
+            elif self.reg[reg_a] > self.reg[reg_b]:
+                self.flag[-2] = 1
+
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -80,8 +90,8 @@ class CPU:
 
         print(f"TRACE: %02X | %02X %02X %02X |" % (
             self.pc,
-            #self.fl,
-            #self.ie,
+            # self.fl,
+            # self.ie,
             self.ram_read(self.pc),
             self.ram_read(self.pc + 1),
             self.ram_read(self.pc + 2)
@@ -104,15 +114,19 @@ class CPU:
 
             # LDI - sets value of register to integer
             if self.ram_read(self.pc) == 0b10000010:
-                print(self.ram_read(self.pc + 2))
-                self.reg[self.reg_pc] = self.ram_read(self.pc + 2)
-                self.reg_pc += 1
+                if 0 not in self.reg:
+                    break
+                # self.reg[self.reg_pc] = self.ram_read(self.pc + 2)
+                # self.reg_pc += 1
+
+                self.reg[self.ram_read(self.pc + 1)
+                         ] = self.ram_read(self.pc + 2)
 
                 self.pc += 3
 
             # PRN, R0
             if self.ram_read(self.pc) == 0b01000111:
-                print(self.reg[0])
+                print(self.reg[self.ram_read(self.pc + 1)])
 
                 self.pc += 2
 
@@ -155,5 +169,28 @@ class CPU:
 
                 self.pc += 2
 
-            if self.ram_read(self.pc) == 0b00000000:
-                self.pc += 1
+            # CMP
+            if self.ram_read(self.pc) == 0b10100111:
+                self.alu("CMP", 0, 1)
+
+                self.pc += 3
+
+            # JMP
+            if self.ram_read(self.pc) == 0b01010100:
+                self.pc = self.reg[self.ram_read(self.pc + 1)]
+
+            # JEQ
+            if self.ram_read(self.pc) == 0b01010101:
+                if self.flag[-1] == 1:
+                    self.pc = self.reg[self.ram_read(self.pc + 1)]
+
+                else:
+                    self.pc += 2
+
+            # JNE
+            if self.ram_read(self.pc) == 0b01010110:
+                if self.flag[-1] == 0:
+                    self.pc = self.reg[self.ram_read(self.pc + 1)]
+
+                else:
+                    self.pc += 2
